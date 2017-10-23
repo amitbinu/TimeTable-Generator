@@ -6,8 +6,12 @@
     <link rel="stylesheet" type="text/css" href="/stylesheets/main.css">
 </head>
 <body>
-<h1>Course Conflict Error</h1>
-<p class="error_box">Specifically, the following fixed courses courses conflict with each other: <%= conflicts %> <br>
+
+<div class="error_box">
+<h1 class="error_title">Course Conflict Error</h1>
+<p class="error_text">Specifically, the following fixed courses courses conflict with each other: <span class="course_name"><%= conflicts %></span><br>
     This means that they have only one core, and those cores are conflicting. </p>
 </body>
+</div>
+
 </html>
