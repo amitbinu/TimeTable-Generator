@@ -4,14 +4,24 @@
 <head><title>Error</title>
     <link rel="icon" href="https://www.iconsfind.com/wp-content/uploads/2015/11/20151104_563963802fd08-210x210.png">
     <link rel="stylesheet" type="text/css" href="/stylesheets/main.css">
+    <link rel="stylesheet" type="text/css" href="/stylesheets/error.css">
 </head>
 <body>
 
 <div class="error_box">
 <h1 class="error_title">Course Conflict Error</h1>
-<p class="error_text">Specifically, the following fixed courses courses conflict with each other: <span class="course_name"><%= conflicts %></span><br>
-    This means that they have only one core, and those cores are conflicting. </p>
-</body>
-</div>
+<p class="error_text">Conflicting Courses:
+        <ul>
+            <% conflicts.forEach(function (course) {
+                %>
 
+            <li class="course_name"><%= course%></li>
+            <br>
+            <% })%>
+        </ul>
+    <br>
+     </p>
+
+</div>
+</body>
 </html>
