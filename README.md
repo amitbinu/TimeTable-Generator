@@ -20,3 +20,5 @@ ReferenceMaterial - Materials used for reference
 	* Open the 'Run.bat' file in the root folder.
 
 	* Open 'http://localhost:3000/' in your browser.
+
+![Alt text](https://github.com/amitbinu/TimeTable-Generator/blob/master/screenshot.PNG?raw=true "Web View")
