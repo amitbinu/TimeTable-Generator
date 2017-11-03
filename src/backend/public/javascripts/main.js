@@ -14,8 +14,13 @@ window.addEventListener( "pageshow", function ( event ) {
         });
     }
 });
-$(document).ready(function () {
 
+
+
+$(document).ready(function () {
+    var allCourses = [];
+    selectedCourses = [];
+    
 
     $('#add').click(function () {
         var value = $('#input').val();
@@ -25,32 +30,40 @@ $(document).ready(function () {
         }
         else{
             $('#error').html(" ");
-            $.ajax({
-                url: '/check/' + value,
-                type:"POST"
-            }).done(function (result) {
-                if (result === "added"){
-                    $("#error").html("You already chose this course");
+            if (selectedCourses.indexOf(value) >= 0) {
+                $("#error").html("You already chose this course");
                     $('#input').effect('shake');
                     return;
-                }
-                if (result === "error"){
-                    $("#error").html("Invalid course");
+            }
+
+            if(allCourses.indexOf(value) < 0){
+                $("#error").html("Invalid course");
                     $('#input').effect('shake');
                     return;
-                }
-                $('#output').html(result);
-            });
+            }
+            selectedCourses.push(value);
+            var result = "<ul>";
+            for (var i = 0 ; i < selectedCourses.length; i++){
+                result += "<li class='course " + selectedCourses[i] + "' > <button type='button' class='remove btn btn-danger' value='" + selectedCourses[i] + "'>Remove </button>"+ selectedCourses[i]  +"</li>"
+            }
+            result += "</ul>"
+            $('#output').html(result);
+            $('.remove').click(function () {
+		        var className = '.' + ($(this).val());
+		        selectedCourses.splice(selectedCourses.indexOf(className),1);
+		        $(className).remove();
+   			});
         }
 
     });
 
+     
 
     $.ajax({
         url:'/getlink',
         type:"POST"
     }).done(function (result) {
-        console.log(result);
+        allCourses = result;
         $("#input").autocomplete({ maxShowItems:10,source:result, minLength:4, delay:0});
     });
 
@@ -58,7 +71,7 @@ $(document).ready(function () {
         console.log("clicked generate ");
 
        $.ajax({
-            url: '/check/submit',
+            url: '/check/submit/'+selectedCourses,
             type: "POST",
            async: true,
            cache:false
