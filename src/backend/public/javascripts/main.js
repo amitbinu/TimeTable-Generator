@@ -79,6 +79,12 @@ $(document).ready(function () {
             if(result === 'error'){
                 $('#error').html("Please ADD a course code");
                 $('#input').effect('shake');
+                return
+            }
+            if(result === 'hacking'){
+            	$('#error').html("You can't hack us");
+            	$('#input').effect('shake');
+            	return
             }
             else{
                 window.location = "/generateTimeTable";
