@@ -54,8 +54,8 @@ router.get('/',function (req, res, next) {
 
     console.log("THESE ARE THE FINAL COURSES \n" );
 
-    dataset = require('../app.js').dataset; //An Array of 'Course' objects that contains detailed information about a course.
-    allCourses  = require('../app.js').macCourses; // Object of the data set that contains detailed information about a course.
+    dataset = require('../index.js').dataset; //An Array of 'Course' objects that contains detailed information about a course.
+    allCourses  = require('../index.js').macCourses; // Object of the data set that contains detailed information about a course.
 
 
     var checkCourse = require('./checkCourse');
@@ -76,13 +76,16 @@ router.get('/',function (req, res, next) {
       schedule2=[];
       console.log("There is no error \n \n");
       var version = finalSemester1[0];
+      if(version !== undefined){
           version.forEach(function (core) {
               core.forEach(function (timeObj) {
                   putInaDay(timeObj.day, timeObj);
               });
           });
-          var temp =[day1,day2,day3,day4,day5,day6];
+          temp =[day1,day2,day3,day4,day5,day6];
           schedule.push(temp);
+      }
+
           day1=[];
           day2=[];
           day3=[];
@@ -91,13 +94,17 @@ router.get('/',function (req, res, next) {
           day6=[];
 
           version = finalSemester2[0];
-          version.forEach(function (core) {
-              core.forEach(function (timeObj) {
-                  putInaDay(timeObj.day, timeObj);
+          console.log("UNDEFINED " + version);
+          if(version !== undefined){
+              version.forEach(function (core) {
+                  core.forEach(function (timeObj) {
+                      putInaDay(timeObj.day, timeObj);
+                  });
               });
-          });
-          var temp =[day1,day2,day3,day4,day5,day6];
-          schedule.push(temp);
+              var temp =[day1,day2,day3,day4,day5,day6];
+              schedule.push(temp);
+          }
+
           day1=[];
           day2=[];
           day3=[];
@@ -143,7 +150,7 @@ function algorithm() {
                semester2.push(dataset[indicies[0]]);
                success = true;
            }
-           else{
+           if(term == '6'){
             //   fullYear.push(dataset[indicies[0]]);
                semester1.push(dataset[indicies[0]]);
                semester2.push(dataset[indicies[0]]);
@@ -182,12 +189,14 @@ function algorithm() {
     try {
         finalSemester1=[];
         finalSemester2=[];
-       success = doSemester(semester1);
+       var success1 = doSemester(semester1);
        var success2 = doSemester(semester2);
 
-       if(!success || !success2){
-           console.log("Redoing it " + success + ' ' + success2);
-           if(!success || !success2){
+
+        console.log("Hello it " + success1 + ' ' + success2);
+       if(!success1 || !success2){
+           console.log("Redoing it " + success1 + ' ' + success2);
+           if(!success1 || !success2){
                bothSemesters.forEach(function (course) {
                    if(semester1.indexOf(course[0]) >= 0){
                        semester1.splice(semester1.indexOf(course[0]),1);
@@ -392,95 +401,98 @@ function prioritize(semester) {
         result.push(semester[index]);
         ranks[index] = 0;
     }
-
     return result;
 }
 
 
 var conflictCourses = [];
-function doSemester(semester1) {
+function doSemester(semester) {
     for(var i =0; i < 7; i++){ // Initializing all the arrays within time.
         times[i] = [];
     }
     fixedCores=[];
     flexCores=[];
-    semester1 = prioritize(semester1);
+    semester = prioritize(semester);
     console.log("\n --- SEMESTER 1 --- \n");
-    console.log(semester1.length + "\n");
+    console.log(semester.length + "\n");
     // Finds the lecture times, tutorial times and lab times that are fixed and flexible.
-    for (var i=0; i < semester1.length; i++){
+    for (var i=0; i < semester.length; i++){
 
-        if (semester1[i].lectureTimes.length === 1){
-            var day = semester1[i].lectureTimes[0][0].day;
-            var start = semester1[i].lectureTimes[0][0].start;
-            var end = semester1[i].lectureTimes[0][0].end;
-
+        if (semester[i].lectureTimes.length === 1){
+            var day = semester[i].lectureTimes[0][0].day;
+            var start = semester[i].lectureTimes[0][0].start;
+            var end = semester[i].lectureTimes[0][0].end;
+            console.log(times[day].indexOf(start) + " Smh " + times[day].indexOf(end));
+            console.log("Day -- " + day + " Start -- " + start + " End -- " + end);
             if(times[day].indexOf(start) < 0 && times[day].indexOf(end) < 0){
                 //pushes an object with name, type and time
-                fixedCores.push({name :semester1[i].name, type :"lecture", time : semester1[i].lectureTimes});
+                fixedCores.push({name :semester[i].name, type :"lecture", time : semester[i].lectureTimes});
                 reserveTime(start, end, day);
             }
             else{ // Sends an error if 2 courses have fixed lecture times.
-                semester1.forEach(function (core) {
+                semester.forEach(function (core) {
                     if(getConflicts(start,end,day) && conflictCourses.indexOf(core.name) < 0){
                         conflictCourses.push(core.name);
                     }
                 });
+                console.log("Returning false --431");
                 return false;
             }
-            console.log("Fixed lecture " + semester1[i].name);
+            console.log("Fixed lecture " + semester[i].name);
         }
 
         else{ // This means the lecture times are flexible.
-            if(semester1[i].lectureTimes.length != 0){
-                flexCores.push({name :semester1[i].name, type :"lecture", time : semester1[i].lectureTimes});
-                console.log("Flexible lecture " + semester1[i].name);
+            if(semester[i].lectureTimes.length != 0){
+                flexCores.push({name :semester[i].name, type :"lecture", time : semester[i].lectureTimes});
+                console.log("Flexible lecture " + semester[i].name);
             }
         }
-        if (semester1[i].tutorialTimes.length === 1){
-            var day = semester1[i].tutorialTimes[0][0].day;
-            var start = semester1[i].tutorialTimes[0][0].start;
-            var end = semester1[i].tutorialTimes[0][0].end;
+        if (semester[i].tutorialTimes.length === 1){
+            var day = semester[i].tutorialTimes[0][0].day;
+            var start = semester[i].tutorialTimes[0][0].start;
+            var end = semester[i].tutorialTimes[0][0].end;
 
-            console.log("Fixed tutorial " + semester1[i].name);
+            console.log("Fixed tutorial " + semester[i].name);
             if(times[day].indexOf(start) < 0 && times[day].indexOf(end) < 0){
                 //pushes an object with name, type and time
-                fixedCores.push({name :semester1[i].name, type :"tutorial", time : semester1[i].tutorialTimes});
+                fixedCores.push({name :semester[i].name, type :"tutorial", time : semester[i].tutorialTimes});
                 reserveTime(start, end, day);
             }
             else{ // Sends an error if 2 courses have fixed tutorial times.
+                console.log("Returning false -- 455");
                 return false;
             }
         }
 
         else { // This means the tutorial times are flexible.
-            if(semester1[i].tutorialTimes.length != 0){
-                flexCores.push({name :semester1[i].name, type :"tutorial", time : semester1[i].tutorialTimes});
-                console.log("Flexible tutorial " + semester1[i].name);
+            if(semester[i].tutorialTimes.length != 0){
+                flexCores.push({name :semester[i].name, type :"tutorial", time : semester[i].tutorialTimes});
+                console.log("Flexible tutorial " + semester[i].name);
             }
 
         }
 
-        if (semester1[i].labTimes.length === 1){
-            var day = semester1[i].labTimes[0][0].day;
-            var start = semester1[i].labTimes[0][0].start;
-            var end = semester1[i].labTimes[0][0].end;
+        if (semester[i].labTimes.length === 1){
+            var day = semester[i].labTimes[0][0].day;
+            var start = semester[i].labTimes[0][0].start;
+            var end = semester[i].labTimes[0][0].end;
 
-            console.log("Fixed lab " + semester1[i].name);
+            console.log("Fixed lab " + semester[i].name);
             if(times[day].indexOf(start) < 0 && times[day].indexOf(end) < 0){
                 //pushes an object with name, type and time
-                fixedCores.push({name :semester1[i].name, type :"lab", time : semester1[i].labTimes});
+                fixedCores.push({name :semester[i].name, type :"lab", time : semester[i].labTimes});
                 reserveTime(start, end, day);
             }
             else{ // Sends an error if 2 courses have fixed lab times.
+                console.log("Returning false -- 480");
                 return false;
             }
         }
 
         else{
-            if(semester1[i].labTimes.length != 0){
-                flexCores.push({name :semester1[i].name, type :"lab", time : semester1[i].labTimes});
-                console.log("Flexible Lab " + semester1[i].name);
+            if(semester[i].labTimes.length != 0){
+                flexCores.push({name :semester[i].name, type :"lab", time : semester[i].labTimes});
+                console.log("Flexible Lab " + semester[i].name);
             }
 
         }
@@ -488,8 +500,9 @@ function doSemester(semester1) {
     if(fixedCores.length === 0){
         fixedCores.push({name :"fake", type :"fake", time : [[{day:10,start:20,end:20,core:'fake',room:'fake',name:'fake'}]]}) //Fake core with no times.
     }
-
-    return makeGraph();
+    var ans = makeGraph()
+    console.log("Making sure -- error (false===yes) ? " + ans);
+    return ans;
 
 }
 
