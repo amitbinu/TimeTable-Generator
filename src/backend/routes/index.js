@@ -11,7 +11,7 @@ router.get('/', function(req, res, next) {
 });
 
 router.post('/getlink',function (req,res,next) {
-    var courses = require('../app').macCourses;
+    var courses = require('../index').macCourses;
     res.send(courses);
     res.end();
 })
