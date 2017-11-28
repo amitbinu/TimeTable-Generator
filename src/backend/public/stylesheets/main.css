@@ -29,7 +29,10 @@ html , body{
 }
 
 #about ul {
+    list-style: none;
     margin-left: 0;
+    padding-left: 1em;
+    text-indent: -1em;
 }
 
 
@@ -121,33 +124,4 @@ html , body{
     text-align: center;
     margin-top: 22%;
     font-size: 2rem;
-}
-
-@media (max-width: 850px){
-    #about{
-        width:90%;
-    }
-    
-    #output{
-        width: 70%;
-    }
-}
-
-@media (max-width: 600px){
-    #inputBox{
-        margin-top: 2%;
-        margin-left:1%;
-    }
-    #output{
-        width: 90%;
-    }
-}
-@media (max-width: 415px){
-    #titleBox{
-        height: 100px;
-    }
-
-    #about{
-        margin-top: 110px
-    }
 }
