@@ -12,6 +12,45 @@ $(document).ready(function () {
         var back = ["#a0c4ff","#ffa0ff","#ffa0a0","#c6c4c4","#fff8ba","#a7f99f","#bafff8","#bebaff","#ffca96"];
         return back[Math.floor(Math.random() * back.length)];
     }
+
+    $("#generate2").click(function () {
+        $.ajax({
+            url:'/generateTimeTable/newTable',
+            type:"GET"
+        }).done(function (result) {
+            $("#schedule1").html(result);
+            $.ajax({
+                url:'/generateTimeTable/makeAgain1',
+                type:"GET"
+            }).done(function (result) {
+                putCourses(result);
+
+            });
+        });
+    });
+
+    $("#generate3").click(function () {
+        $.ajax({
+            url:'/generateTimeTable/newTable',
+            type:"GET"
+        }).done(function (result) {
+            $("#schedule2").html(result);
+            $.ajax({
+                url:'/generateTimeTable/makeAgain2',
+                type:"GET"
+            }).done(function (result) {
+                putCourses(result);
+
+            });
+        });
+    });
+    var reset = [];
+    
+    function reset() {
+        for(var i = 0; i < reset.length; i++){
+
+        }
+    }
     function putCourses(schedule) {
         var counter = 1;
         schedule.forEach(function (version) {
