@@ -1,12 +1,19 @@
 var express = require('express');
 var jsgraphs = require('js-graph-algorithms');
-
+const Graph = require('node-all-paths');
 var graph; //Graph where each node represents a core and edge represents non-conflict relationship.
+var g1; // Graph for semester 1
+var g2; // Graph for semester 2
+var nodeIDS;// nodeIDS of cores at the end of the graphs
+var timObj1; // Array of time objects of all the courses in semester 1
+var timObj2; // Array of time objects of all the courses in semester 2
+
 var router = express.Router();
 var dataset;
 var allCourses;
 var finalCourses; // The courses user wants to generate time table on.
-
+var sem1AllPaths = []; //All possible schedules of semester 1
+var sem2AllPaths = []; // All possible schedules of semester 2
 //dataset.timetables[2017][6].courses
 //var fullYear = []; // Contains course objects of courses that are available only for full year (September - March).
 var bothSemesters = []; //Contains course objects of courses that are available for both Semesters. Example Macro Economics ECON 1BB3
@@ -33,8 +40,13 @@ var success = true;
 
 var schedule=[];
 var schedule2=[];
-router.get('/',function (req, res, next) {
+
+var paths = []; //Contains different versions of timetable. 1st element is for semester 1 and second is for semester 2.
+
+function reset() {
     schedule=[];
+    sem1AllPaths = [];
+    sem2AllPaths = [];
     times=[];
     day1=[];
     day2=[];
@@ -42,20 +54,23 @@ router.get('/',function (req, res, next) {
     day4=[];
     day5=[];
     day6=[];
-
+    nodeIDS = [];
     semester1 = [];
     semester2 = [];
- //   fullYear = [];
+    //   fullYear = [];
     bothSemesters = [];
     fixedCores=[];
     flexCores=[];
     finalSemester1=[];
     finalSemester2=[];
+    conflictCourses = [];
 
-    console.log("THESE ARE THE FINAL COURSES \n" );
+}
+router.get('/',function (req, res, next) {
+    reset();
 
-    dataset = require('../index.js').dataset; //An Array of 'Course' objects that contains detailed information about a course.
-    allCourses  = require('../index.js').macCourses; // Object of the data set that contains detailed information about a course.
+    dataset = require('../app.js').dataset; //An Array of 'Course' objects that contains detailed information about a course.
+    allCourses  = require('../app.js').macCourses; // Object of the data set that contains detailed information about a course.
 
 
     var checkCourse = require('./checkCourse');
@@ -69,6 +84,7 @@ router.get('/',function (req, res, next) {
 
   if (errorCheck === false){
         console.log("There is an error");
+
       return res.render('scheduleError',{conflicts: conflictCourses});
 
     }else{
@@ -117,6 +133,7 @@ router.get('/',function (req, res, next) {
 
   //    express.locals.schedule= schedule;
 
+
       return res.render('schedule',{schedule: schedule});
     }
 });
@@ -126,6 +143,752 @@ router.get('/getSchedule',function (req,res,next) {
     res.end;
 });
 
+router.get('/makeAgain1', function (req,res,next) {
+
+    console.log("Making another one");
+    console.log(g1.node(0).label + " is in sem?");
+    try{
+        if(sem1AllPaths.length === 0){
+            paths = [];
+            findAllPaths(g1,nodeIDS[0]);
+            sem1AllPaths = paths;
+
+        }
+
+
+        day1=[];
+        day2=[];
+        day3=[];
+        day4=[];
+        day5=[];
+        day6=[];
+        var timetable = [];
+
+        while (timetable.length !== finalSemester1[0].length){
+            timetable = sem1AllPaths[Math.floor(Math.random() * sem1AllPaths.length)][0];
+        }
+
+        console.log("TIMETABLE");
+        console.log(timetable.length + " " + finalSemester1[0].length);
+
+        console.log("Total version1 "+ sem1AllPaths.length);
+        var version = [];
+        timetable.forEach(function (core) {
+            version.push(timObj1[core]);
+        });
+
+        if(version !== undefined){
+            console.log("VERSION");
+            console.log(version);
+            version.forEach(function (core) {
+                core.forEach(function (timeObj) {
+                    putInaDay(timeObj.day, timeObj);
+                });
+            });
+            var temp =[day1,day2,day3,day4,day5,day6];
+            schedule[0] = temp;
+        }
+    }
+    catch (E){
+        console.log(E);
+    }
+    res.send(schedule);
+});
+
+router.get('/makeAgain2', function (req,res,next) {
+    try{
+        if(sem2AllPaths.length === 0){
+            paths = [];
+            findAllPaths(g2,nodeIDS[1]);
+            sem2AllPaths = paths;
+        }
+
+        day1=[];
+        day2=[];
+        day3=[];
+        day4=[];
+        day5=[];
+        day6=[];
+        console.log("Total versions2 " + sem2AllPaths.length + " " );
+        var timetable = sem2AllPaths[Math.floor(Math.random() * sem2AllPaths.length)][0];
+
+        var version = [];
+        timetable.forEach(function (core) {
+            version.push(timObj2[core]);
+        });
+        if(version !== undefined){
+            console.log("VERSION");
+            console.log(version);
+            version.forEach(function (core) {
+                core.forEach(function (timeObj) {
+                    putInaDay(timeObj.day, timeObj);
+                });
+            });
+            var temp =[day1,day2,day3,day4,day5,day6];
+            schedule[1] = temp;
+        }
+    }
+    catch (E){
+        console.log(E);
+    }
+    res.send(schedule);
+    res.end;
+});
+
+router.get('/newTable',function (req, res) {
+    res.send(
+        "        <tbody><tr>\n" +
+        "            <th>Time</th>\n" +
+        "            <th>Monday</th>\n" +
+        "            <th>Tuesday</th>\n" +
+        "            <th>Wednesday</th>\n" +
+        "            <th>Thursday</th>\n" +
+        "            <th>Friday</th>\n" +
+        "            <th>Saturday</th>\n" +
+        "        </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time8\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    8:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time85\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        8:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time9\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    9:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time95\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        9:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time10\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    10:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time105\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        10:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time11\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    11:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time115\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        11:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time12\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    12:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time125\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        12:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time13\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    13:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time135\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        13:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time14\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    14:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time145\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        14:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time15\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    15:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time155\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        15:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time16\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    16:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time165\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        16:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time17\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    17:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time175\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        17:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time18\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    18:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time185\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        18:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time19\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    19:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time195\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        19:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time20\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    20:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time205\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        20:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time21\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    21:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time215\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                        21:30\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "            <tr class=\"time22\">\n" +
+        "                <td style=\"border: 1px solid black; border-collapse: collapse; text-align: center\">\n" +
+        "                    \n" +
+        "                    22:00\n" +
+        "                    \n" +
+        "                </td>\n" +
+        "                \n" +
+        "                <td class=\"day0\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day1\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day2\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day3\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day4\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "                <td class=\"day5\" style=\"text-align:center\"></td>\n" +
+        "                \n" +
+        "            </tr>\n" +
+        "\n" +
+        "        \n" +
+        "    </tbody>");
+    res.end;
+});
 function algorithm() {
 
 
@@ -192,7 +955,6 @@ function algorithm() {
        var success1 = doSemester(semester1);
        var success2 = doSemester(semester2);
 
-
         console.log("Hello it " + success1 + ' ' + success2);
        if(!success1 || !success2){
            console.log("Redoing it " + success1 + ' ' + success2);
@@ -255,6 +1017,22 @@ function permutation(number) {
         prod = prod * i;
     }
     return prod;
+}
+
+function rearrange(arr) {
+    var randomArray = [];
+    while (randomArray.length !== arr.length){
+        var Index = Math.floor(Math.random() * arr.length);
+
+        var randomCore = arr[Index];
+        if(randomArray.indexOf(randomCore) < 0){
+            randomArray.push(randomCore);
+        }
+    }
+
+    return arr;
+
+
 }
 
 function updateSemester(semster) {
@@ -500,7 +1278,7 @@ function doSemester(semester) {
     if(fixedCores.length === 0){
         fixedCores.push({name :"fake", type :"fake", time : [[{day:10,start:20,end:20,core:'fake',room:'fake',name:'fake'}]]}) //Fake core with no times.
     }
-    var ans = makeGraph()
+    var ans = makeGraph();
     console.log("Making sure -- error (false===yes) ? " + ans);
     return ans;
 
@@ -664,6 +1442,7 @@ function makeGraph() {
       var timeTables = [];
       BreadthFirstPaths(graph,0);
 
+
       for(var index = 0; index < nodeIds.length; index++){
           console.log(hasPathTo(index));
           if(hasPathTo(nodeIds[index])){
@@ -682,8 +1461,10 @@ function makeGraph() {
       if(timeTables.length === 0 ){
           return false;
       }
-
       if(finalSemester1.length === 0){
+          nodeIDS[0] = nodeIds;
+          g1 = graph;
+          timObj1 = allTimeObjects;
           timeTables.forEach(function (timeTable) {
               var version = [];
               timeTable.forEach(function (core) {
@@ -693,6 +1474,9 @@ function makeGraph() {
           });
       }
       else{
+          nodeIDS[1]= nodeIds;
+          g2 = graph;
+          timObj2 = allTimeObjects;
           timeTables.forEach(function (timeTable) {
               var version = [];
               timeTable.forEach(function (core) {
@@ -801,18 +1585,17 @@ function  bfs(G, s) {
     marked[s] = true;
     q.push(s);
 
-    while (q.length != 0) {
+    while (q.length !== 0) {
         var v = q.pop();
         G.adj(v).forEach(function (w) {
             if (!marked[w]) {
-                edgeTo[w]=(v);
+                edgeTo[w] =v;
                 distTO[w] = distTO[v] + 1;
                 marked[w] = true;
                 q.push(w);
             }
         })
     }
-    return;
 }
 
 function hasPathTo(v) {
@@ -820,18 +1603,53 @@ function hasPathTo(v) {
 }
 
 function pathTo(v) {
+
     if(!hasPathTo(v)) return null;
     var path = [];
     var x;
-
-        for(x = v; distTO[x] != 0 ; x= edgeTo[x]){
+        for(x = v; distTO[x] !== 0 ; x= edgeTo[x]){
             path.push(x);
         }
         path.push(x);
-
-
-
     return path;
+}
+
+
+function findAllPaths(graph, nodeIds) {
+    var g = new Graph();
+    var hell  =0;
+
+    if(graph.node(0).label === "fake" || graph.node(0).label ==="fake fake"){
+     //   hell = 1;
+    }
+    console.log(nodeIds[0] + ' Node id / ' + graph.V);
+    var temp2 = [];
+
+    for (var i =0; i < graph.V ; i++){
+        temp2[i] = [];
+    }
+    for (var i = hell; i < graph.V ; i++){
+        temp2[i] =[];
+        var edges = graph.adj(i);
+        var obj = {};
+
+        edges.forEach(function (vertex) {
+            if(temp2[vertex].indexOf(i) < 0){
+                temp2[i].push(vertex);
+               // var core = graph.node(vertex).label;
+                obj[vertex] = 1
+            }
+        });
+        g.addNode(i+"", obj);
+    }
+    console.log('Making path');
+    BreadthFirstPaths(graph, 0);
+    nodeIds.forEach(function (t) {
+        if(hasPathTo(t)){
+            paths.push(g.path('0', t+''));
+        }
+    });
+    console.log("Finished path with length " + paths.length);
 }
 
 
@@ -875,6 +1693,9 @@ Array.prototype.multiIndexOf = function (el) {
 };
 
 module.exports = router;
+module.exports.finalCourses = function (arr) {
+    finalCourses = arr;
+};
 module.exports.reset = function () { // To reset all the values when the page is reloaded.
     finalCourses = [];
    // fullYear = [];
