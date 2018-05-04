@@ -135,20 +135,20 @@
       <find>pushing</find>
       <find>hasPathCon</find>
       <find>hasCon</find>
-      <find>has path</find>
-      <find>2ui3 T06</find>
-      <find>Edge between geog-2GI3 L09</find>
-      <find>function has</find>
+      <find />
+      <find />
+      <find />
+      <find />
       <find>Edge</find>
-      <find>Edge between EARTHSC-2C03</find>
-      <find>Edge b</find>
+      <find />
+      <find />
       <find>flex</find>
       <find>Red</find>
-      <find>Semester 1</find>
+      <find />
       <find>Redoi</find>
       <find>make</find>
       <find>Pleas</find>
-      <find>term --</find>
+      <find />
       <find>Redoing</find>
       <find>Redo</find>
       <find>conflictcOURSES</find>
@@ -281,10 +281,6 @@
         </RuleState>
       </list>
     </option>
-  </component>
-  <component name="RunManager" selected="Node.js.bin\www" />
-  <component name="ShelveChangesManager" show_recycled="false">
-    <option name="remove_strategy" value="false" />
   </component>
   <component name="SvnConfiguration">
     <configuration />
@@ -480,7 +476,7 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/../../../../RemindVoice/index.html" />
+    <entry file="file://$USER_HOME$/RemindVoice/index.html" />
     <entry file="file://$PROJECT_DIR$/app.js">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="972">
@@ -550,7 +546,7 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/../../../../RemindVoice/index.html" />
+    <entry file="file://$USER_HOME$/RemindVoice/index.html" />
     <entry file="file://$PROJECT_DIR$/public/javascripts/jquery-ui.js">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
