@@ -10,7 +10,7 @@ router.get('/', function(req, res, next) {
     res.end();
 });
 
-router.post('/getlink',function (req,res,next) {
+router.get('/getlink',function (req,res,next) {
     var courses = require('../index').macCourses;
     res.send(courses);
     res.end();
