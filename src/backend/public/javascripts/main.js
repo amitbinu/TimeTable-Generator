@@ -61,10 +61,14 @@ $(document).ready(function () {
 
     $.ajax({
         url:'/getlink',
-        type:"POST"
+        type:"GET"
     }).done(function (result) {
-        allCourses = result;
-        $("#input").autocomplete({ maxShowItems:10,source:result, minLength:4, delay:0});
+        for(i=0; i < result.length ; i++){
+            if(allCourses.indexOf(result[i]) < 0){
+                allCourses.push(result[i]);
+            }
+        }
+        $("#input").autocomplete({ maxShowItems:10,source:allCourses, minLength:4, delay:0});
     });
 
     $("#generate").click(function () {
