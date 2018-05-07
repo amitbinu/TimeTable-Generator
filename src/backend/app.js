@@ -22,9 +22,8 @@ fs.readFile("C://Users//amitb//Desktop/data.txt", 'utf8', function(err, contents
 });
 */
 request('https://www.timetablegenerator.io/api/v2/school/mcmaster/', function (error, response, body) {
-    console.log(error);
   if (error){
-    console.log('\n Something went wrong');
+    console.log('\n Could not fetch data from https://www.timetablegenerator.io/api/v2/school/mcmaster/ ');
   }
   else{
     realData = JSON.parse(body);
